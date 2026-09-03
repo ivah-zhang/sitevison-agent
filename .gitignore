@@ -1,0 +1,20 @@
+# 執行時資料：相片、資料庫、生成的報告
+data/
+
+# CITF 申請文稿與填表腳本：含預算及採購安排，不對外公開
+CITF_申請填寫總表_定稿.md
+CITF_全部填寫內容_恢復稿.txt
+CITF_Stage1_填寫內容_中文.txt
+_fill_citf_stage1.py
+_fill_citf_budget.py
+CITF_*.pdf
+*.xlsx
+*.docx
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Excel 暫存檔
+~$*.xlsx
