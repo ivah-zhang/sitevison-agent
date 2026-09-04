@@ -40,11 +40,6 @@ def site_daily(conn: sqlite3.Connection, site_id: int, work_date: str) -> dict:
         "SELECT COUNT(*) AS n" + base + " AND r.id IS NULL", params
     ).fetchone()["n"]
 
-    duplicates = conn.execute(
-        "SELECT COUNT(*) AS n FROM duplicates WHERE site_id = ? AND date(seen_at) = ?",
-        (site_id, work_date),
-    ).fetchone()["n"]
-
     by_category = {
         r["category"]: r["n"]
         for r in conn.execute(
@@ -63,7 +58,6 @@ def site_daily(conn: sqlite3.Connection, site_id: int, work_date: str) -> dict:
         "pending_review": pending,
         "review_progress": round(reviewed / ai_flagged * 100, 1) if ai_flagged else 100.0,
         "false_positive_rate": round(rejected / reviewed * 100, 1) if reviewed else 0.0,
-        "duplicates_blocked": duplicates,
         "by_category": by_category,
     }
 
@@ -94,7 +88,6 @@ def dashboard(conn: sqlite3.Connection, work_date: str | None = None) -> dict:
             "confirmed",
             "rejected",
             "pending_review",
-            "duplicates_blocked",
         )
     }
     reviewed = totals["confirmed"] + totals["rejected"]

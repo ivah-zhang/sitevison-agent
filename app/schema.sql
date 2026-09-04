@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS sites (
 CREATE TABLE IF NOT EXISTS photos (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     site_id       INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-    sha256        TEXT    NOT NULL UNIQUE,
+    sha256        TEXT    NOT NULL,
     original_name TEXT    NOT NULL,
     stored_path   TEXT    NOT NULL,
     work_date     TEXT    NOT NULL,
@@ -28,16 +28,6 @@ CREATE TABLE IF NOT EXISTS photos (
 
 CREATE INDEX IF NOT EXISTS idx_photos_site_date ON photos(site_id, work_date);
 CREATE INDEX IF NOT EXISTS idx_photos_status ON photos(detect_status);
-
--- 同一張相片重覆傳入的紀錄，用於量化去重成效
-CREATE TABLE IF NOT EXISTS duplicates (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    sha256        TEXT    NOT NULL,
-    original_name TEXT    NOT NULL,
-    site_id       INTEGER REFERENCES sites(id) ON DELETE SET NULL,
-    photo_id      INTEGER REFERENCES photos(id) ON DELETE CASCADE,
-    seen_at       TEXT    NOT NULL
-);
 
 CREATE TABLE IF NOT EXISTS detections (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,

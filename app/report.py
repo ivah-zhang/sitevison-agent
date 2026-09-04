@@ -178,7 +178,6 @@ def generate_daily_report(
         document,
         [
             ("接收相片總數", f"{summary['photo_count']} 張"),
-            ("重覆相片攔截", f"{summary['duplicates_blocked']} 張"),
             ("AI 標示違規", f"{summary['ai_flagged']} 項"),
             ("覆核確認違規", f"{summary['confirmed']} 項"),
             ("覆核判定誤報", f"{summary['rejected']} 項"),
@@ -336,7 +335,6 @@ def render_report_html(conn: sqlite3.Connection, site_id: int, work_date: str) -
     summary_rows = "".join(
         [
             _row("接收相片總數", f"{summary['photo_count']} 張"),
-            _row("重覆相片攔截", f"{summary['duplicates_blocked']} 張"),
             _row("AI 標示違規", f"{summary['ai_flagged']} 項"),
             _row("覆核確認違規", f"{summary['confirmed']} 項"),
             _row("覆核判定誤報", f"{summary['rejected']} 項"),
@@ -430,7 +428,7 @@ def render_report_html(conn: sqlite3.Connection, site_id: int, work_date: str) -
 </head>
 <body>
 <div class="toolbar">
-  <a href="/web/reports.html">← 返回報告列表</a>
+  <a href="/web/index.html">← 返回概覽</a>
   <span class="spacer"></span>
   {download}
   <button onclick="window.print()">列印 / 儲存 PDF</button>

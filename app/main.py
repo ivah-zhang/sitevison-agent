@@ -58,6 +58,11 @@ def root():
     return RedirectResponse("/web/index.html")
 
 
+@app.get("/web/reports.html", include_in_schema=False)
+def reports_merged():
+    return RedirectResponse("/web/index.html")
+
+
 @app.get("/api/health")
 def health():
     return {
@@ -120,7 +125,6 @@ def scan_inbox():
         )
     return {
         "added": summary.added,
-        "duplicate": summary.duplicate,
         "skipped": summary.skipped,
         "error": summary.error,
         "detection": detection,
@@ -130,7 +134,7 @@ def scan_inbox():
 
 @app.post("/api/ingest/upload")
 def upload_photos(site_id: int = Form(...), files: list[UploadFile] = File(...)):
-    added, duplicate, skipped, errors = 0, 0, 0, []
+    added, skipped, errors = 0, 0, []
     temp_dir = Path(tempfile.mkdtemp(prefix="citf-upload-"))
     try:
         with get_conn() as conn:
@@ -148,8 +152,6 @@ def upload_photos(site_id: int = Form(...), files: list[UploadFile] = File(...))
                     continue
                 if outcome.status == "added":
                     added += 1
-                elif outcome.status == "duplicate":
-                    duplicate += 1
                 else:
                     skipped += 1
                     errors.append(f"{name}: {outcome.reason}")
@@ -161,7 +163,6 @@ def upload_photos(site_id: int = Form(...), files: list[UploadFile] = File(...))
 
     return {
         "added": added,
-        "duplicate": duplicate,
         "skipped": skipped,
         "errors": errors,
         "detection": detection,

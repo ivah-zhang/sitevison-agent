@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """相片接入。
 
-兩個入口：監控 data/inbox/<地盤代號>/ 資料夾（模擬前線群組相片流），
-以及網頁上載 API。兩者共用同一條 SHA-256 去重與歸檔流程。
+兩個入口：網頁上載，以及掃描 data/inbox/<地盤代號>/。
+每張相片各自歸檔入庫，不攔截內容相同的檔案。
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import shutil
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+from uuid import uuid4
 
 from PIL import Image
 
@@ -22,10 +23,6 @@ from .models import IngestOutcome, IngestSummary
 
 EXIF_DATETIME_ORIGINAL = 36867
 PROCESSED_DIRNAME = "_processed"
-
-
-def sha256_bytes(payload: bytes) -> str:
-    return hashlib.sha256(payload).hexdigest()
 
 
 def sha256_file(path: Path) -> str:
@@ -80,7 +77,7 @@ def store_photo(
     source: str,
     original_name: str | None = None,
 ) -> IngestOutcome:
-    """將單一檔案歸檔入庫。內容重覆者只登記於 duplicates 表，不重覆儲存。"""
+    """將單一檔案歸檔入庫。"""
     original_name = original_name or source_path.name
     suffix = source_path.suffix.lower()
     if suffix not in config.ALLOWED_SUFFIXES:
@@ -91,28 +88,14 @@ def store_photo(
         return IngestOutcome("error", str(source_path), reason=f"地盤 id={site_id} 不存在")
 
     digest = sha256_file(source_path)
-    existing = conn.execute(
-        "SELECT id FROM photos WHERE sha256 = ?", (digest,)
-    ).fetchone()
-    if existing:
-        conn.execute(
-            "INSERT INTO duplicates (sha256, original_name, site_id, photo_id, seen_at)"
-            " VALUES (?, ?, ?, ?, ?)",
-            (digest, original_name, site_id, existing["id"], now_iso()),
-        )
-        return IngestOutcome(
-            "duplicate", str(source_path), photo_id=existing["id"], reason="內容與已存相片相同"
-        )
-
     width, height, exif_captured_at = read_image_meta(source_path)
     captured_at = resolve_captured_at(source_path, exif_captured_at)
     work_date = captured_at[:10]
 
     target_dir = config.PHOTO_DIR / site["code"] / work_date
     target_dir.mkdir(parents=True, exist_ok=True)
-    target_path = target_dir / f"{digest[:12]}{suffix}"
-    if not target_path.exists():
-        shutil.copy2(source_path, target_path)
+    target_path = target_dir / f"{uuid4().hex[:12]}{suffix}"
+    shutil.copy2(source_path, target_path)
 
     cursor = conn.execute(
         "INSERT INTO photos (site_id, sha256, original_name, stored_path, work_date,"
@@ -167,7 +150,7 @@ def scan_inbox(conn: sqlite3.Connection, move_processed: bool = True) -> IngestS
             except Exception as exc:  # 單一檔案失敗不應中斷整批接入
                 outcome = IngestOutcome("error", str(file_path), reason=str(exc))
             summary.record(outcome)
-            if move_processed and outcome.status in {"added", "duplicate"}:
+            if move_processed and outcome.status == "added":
                 _move_to_processed(file_path, site["code"])
 
     return summary

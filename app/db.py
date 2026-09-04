@@ -43,6 +43,51 @@ def init_db() -> None:
     config.ensure_dirs()
     with get_conn() as conn:
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+        _drop_dedup_schema(conn)
+
+
+def _drop_dedup_schema(conn: sqlite3.Connection) -> None:
+    """舊庫若仍有去重表或 sha256 唯一約束，升級時拆除。"""
+    conn.execute("DROP TABLE IF EXISTS duplicates")
+
+    unique_sha = False
+    for idx in conn.execute("PRAGMA index_list('photos')"):
+        if not idx["unique"]:
+            continue
+        cols = [c["name"] for c in conn.execute(f"PRAGMA index_info('{idx['name']}')")]
+        if cols == ["sha256"]:
+            unique_sha = True
+            break
+    if not unique_sha:
+        return
+
+    conn.execute("PRAGMA foreign_keys = OFF")
+    conn.executescript(
+        """
+        CREATE TABLE photos_new (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_id       INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+            sha256        TEXT    NOT NULL,
+            original_name TEXT    NOT NULL,
+            stored_path   TEXT    NOT NULL,
+            work_date     TEXT    NOT NULL,
+            captured_at   TEXT,
+            received_at   TEXT    NOT NULL,
+            source        TEXT    NOT NULL,
+            width         INTEGER,
+            height        INTEGER,
+            file_bytes    INTEGER,
+            detect_status TEXT    NOT NULL DEFAULT 'pending',
+            detect_error  TEXT
+        );
+        INSERT INTO photos_new SELECT * FROM photos;
+        DROP TABLE photos;
+        ALTER TABLE photos_new RENAME TO photos;
+        CREATE INDEX IF NOT EXISTS idx_photos_site_date ON photos(site_id, work_date);
+        CREATE INDEX IF NOT EXISTS idx_photos_status ON photos(detect_status);
+        """
+    )
+    conn.execute("PRAGMA foreign_keys = ON")
 
 
 DEFAULT_SITES = [

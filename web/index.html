@@ -3,53 +3,40 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>多地盤儀表板 — 地盤 AI 安全監測系統</title>
+<title>概覽 — 地盤安全監測</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">地盤 AI 安全監測及自動記錄系統<small>AI Site Safety Monitoring and Automated Record System</small></div>
+  <div class="brand">地盤安全監測</div>
   <nav class="tabs">
-    <a href="index.html">多地盤儀表板</a>
-    <a href="review.html">人手覆核</a>
-    <a href="reports.html">每日報告</a>
+    <a href="index.html">概覽</a>
+    <a href="review.html">覆核</a>
   </nav>
-  <span class="detector-badge" id="detector-badge">載入中…</span>
 </header>
 
 <main>
   <div class="toolbar">
-    <label class="field">工作日期
+    <label class="field">日期
       <select id="date-select"></select>
     </label>
-    <button id="btn-scan">掃描收件匣</button>
     <label class="field">上載至
       <select id="upload-site"></select>
     </label>
     <input type="file" id="upload-input" accept="image/*" multiple hidden>
     <button id="btn-upload">上載相片</button>
-    <div class="spacer"></div>
-    <button id="btn-reports" class="primary">生成當日全部日報</button>
+    <button id="btn-scan">掃描收件匣</button>
   </div>
-  <p class="hint">
-    收件匣位於 <code>data/inbox/&lt;地盤代號&gt;/</code>，模擬前線群組相片流；相同內容的相片會被自動攔截，不重覆入庫。
-  </p>
-
-  <div class="cards" id="totals"></div>
 
   <section class="panel">
-    <h2>各地盤當日狀況</h2>
     <table>
       <thead>
         <tr>
           <th>地盤</th>
-          <th class="num">接收相片</th>
-          <th class="num">去重攔截</th>
-          <th class="num">AI 標示</th>
-          <th class="num">確認違規</th>
-          <th class="num">誤報</th>
+          <th class="num">相片</th>
+          <th class="num">標示</th>
           <th class="num">待覆核</th>
-          <th class="num">覆核進度</th>
+          <th class="num">確認</th>
           <th>日報</th>
         </tr>
       </thead>
@@ -66,9 +53,8 @@ let currentDate = null;
 
 async function loadSites() {
   sites = await API.get("/api/sites");
-  const select = document.getElementById("upload-site");
-  select.innerHTML = sites
-    .map((s) => `<option value="${s.id}">${s.code} — ${s.name}</option>`)
+  document.getElementById("upload-site").innerHTML = sites
+    .map((s) => `<option value="${s.id}">${s.code} ${s.name}</option>`)
     .join("");
 }
 
@@ -84,51 +70,26 @@ async function loadDates() {
   currentDate = select.value;
 }
 
-function card(label, value, tone = "") {
-  return `<div class="card ${tone}"><div class="value">${value}</div><div class="label">${label}</div></div>`;
-}
-
-function renderTotals(totals) {
-  document.getElementById("totals").innerHTML = [
-    card("在營地盤", totals.site_count),
-    card("接收相片", totals.photo_count),
-    card("去重攔截", totals.duplicates_blocked),
-    card("AI 標示違規", totals.ai_flagged, totals.ai_flagged ? "warn" : ""),
-    card("覆核確認違規", totals.confirmed, totals.confirmed ? "alert" : "good"),
-    card("待覆核", totals.pending_review, totals.pending_review ? "warn" : "good"),
-    card("覆核進度", totals.review_progress + "%", totals.review_progress >= 100 ? "good" : "warn"),
-  ].join("");
-}
-
-function progressTag(value) {
-  const tone = value >= 100 ? "ok" : value > 0 ? "warn" : "muted";
-  return `<span class="tag ${tone}">${value}%</span>`;
-}
-
 function renderSites(rows) {
   const tbody = document.getElementById("site-rows");
   if (!rows.length) {
-    tbody.innerHTML = "<tr><td colspan='9' class='empty'>尚未登記任何地盤</td></tr>";
+    tbody.innerHTML = "<tr><td colspan='6' class='empty'>尚未登記任何地盤</td></tr>";
     return;
   }
   tbody.innerHTML = rows
     .map((r) => {
       const preview = `<a href="/api/reports/preview?site_id=${r.site_id}&date=${currentDate}"
                           target="_blank" rel="noopener">預覽</a>`;
-      const reportCell = r.report_id
-        ? `${preview} · <a href="/api/reports/${r.report_id}/download">下載 .docx</a>
-           <span class="tag muted">${formatTime(r.report_generated_at)}</span>`
-        : `${preview} · <button data-site="${r.site_id}" class="btn-one-report">生成 .docx</button>`;
+      const report = r.report_id
+        ? `${preview} · <a href="/api/reports/${r.report_id}/download">下載</a>`
+        : `${preview} · <button data-site="${r.site_id}" class="btn-one-report">生成</button>`;
       return `<tr>
-        <td><strong>${r.site_code}</strong> ${r.site_name}</td>
+        <td>${r.site_code} ${r.site_name}</td>
         <td class="num">${r.photo_count}</td>
-        <td class="num">${r.duplicates_blocked}</td>
         <td class="num">${r.ai_flagged}</td>
-        <td class="num">${r.confirmed ? `<span class="tag danger">${r.confirmed}</span>` : 0}</td>
-        <td class="num">${r.rejected}</td>
         <td class="num">${r.pending_review ? `<span class="tag warn">${r.pending_review}</span>` : 0}</td>
-        <td class="num">${progressTag(r.review_progress)}</td>
-        <td>${reportCell}</td>
+        <td class="num">${r.confirmed ? `<span class="tag danger">${r.confirmed}</span>` : 0}</td>
+        <td>${report}</td>
       </tr>`;
     })
     .join("");
@@ -136,11 +97,11 @@ function renderSites(rows) {
   tbody.querySelectorAll(".btn-one-report").forEach((button) => {
     button.addEventListener("click", () =>
       withBusy(button, async () => {
-        const result = await API.post("/api/reports/generate", {
+        await API.post("/api/reports/generate", {
           site_id: Number(button.dataset.site),
           work_date: currentDate,
         });
-        toast(`已生成 ${result.site_name} ${result.work_date} 日報`);
+        toast("已生成日報");
         await refresh();
       })
     );
@@ -149,12 +110,10 @@ function renderSites(rows) {
 
 async function refresh() {
   if (!currentDate) {
-    renderTotals({ site_count: sites.length, photo_count: 0, duplicates_blocked: 0, ai_flagged: 0, confirmed: 0, pending_review: 0, review_progress: 100 });
     renderSites([]);
     return;
   }
   const data = await API.get(`/api/dashboard?date=${currentDate}`);
-  renderTotals(data.totals);
   renderSites(data.sites);
 }
 
@@ -166,7 +125,7 @@ document.getElementById("date-select").addEventListener("change", (event) => {
 document.getElementById("btn-scan").addEventListener("click", (event) =>
   withBusy(event.target, async () => {
     const result = await API.post("/api/ingest/scan");
-    toast(`接入 ${result.added} 張，攔截重覆 ${result.duplicate} 張，偵測 ${result.detection.photos ?? 0} 張`);
+    toast(`接入 ${result.added} 張`);
     await loadDates();
     await refresh();
   })
@@ -185,21 +144,12 @@ document.getElementById("upload-input").addEventListener("change", async (event)
     form.append("site_id", document.getElementById("upload-site").value);
     files.forEach((file) => form.append("files", file));
     const result = await API.postForm("/api/ingest/upload", form);
-    toast(`上載 ${result.added} 張，攔截重覆 ${result.duplicate} 張`);
+    toast(`上載 ${result.added} 張`);
     await loadDates();
     await refresh();
   });
   event.target.value = "";
 });
-
-document.getElementById("btn-reports").addEventListener("click", (event) =>
-  withBusy(event.target, async () => {
-    if (!currentDate) throw new Error("尚無可生成報告的日期");
-    const result = await API.post("/api/reports/generate-all", { work_date: currentDate });
-    toast(`已生成 ${result.reports.length} 份日報`);
-    await refresh();
-  })
-);
 
 (async function init() {
   await loadSites();

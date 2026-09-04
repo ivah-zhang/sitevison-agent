@@ -43,7 +43,7 @@ class DetectionResult:
 class IngestOutcome:
     """單一檔案接入結果。"""
 
-    status: str  # added | duplicate | skipped | error
+    status: str  # added | skipped | error
     path: str
     photo_id: Optional[int] = None
     reason: str = ""
@@ -52,7 +52,6 @@ class IngestOutcome:
 @dataclass
 class IngestSummary:
     added: int = 0
-    duplicate: int = 0
     skipped: int = 0
     error: int = 0
     items: list[IngestOutcome] = field(default_factory=list)

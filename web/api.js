@@ -65,23 +65,6 @@ function markActiveTab() {
   });
 }
 
-async function showDetectorBadge() {
-  const badge = document.getElementById("detector-badge");
-  if (!badge) return;
-  try {
-    const health = await API.get("/api/health");
-    const isMock = health.detector === "mock";
-    badge.classList.add(isMock ? "mock" : "live");
-    badge.textContent = isMock ? "● 模擬偵測器 mock" : `● 實測模型 ${health.detector}`;
-    badge.title = isMock
-      ? "目前使用模擬偵測器，結果不代表真實識別準確度"
-      : "目前使用真實模型偵測";
-  } catch (_) {
-    badge.classList.add("down");
-    badge.textContent = "● 後端未連線";
-  }
-}
-
 function formatTime(value) {
   if (!value) return "—";
   return String(value).slice(0, 19).replace("T", " ");
@@ -101,7 +84,4 @@ function openLightbox(src) {
   dialog.showModal();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  markActiveTab();
-  showDetectorBadge();
-});
+document.addEventListener("DOMContentLoaded", markActiveTab);

@@ -3,18 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>人手覆核 — 地盤 AI 安全監測系統</title>
+<title>覆核 — 地盤安全監測</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <header class="topbar">
-  <div class="brand">地盤 AI 安全監測及自動記錄系統<small>AI Site Safety Monitoring and Automated Record System</small></div>
+  <div class="brand">地盤安全監測</div>
   <nav class="tabs">
-    <a href="index.html">多地盤儀表板</a>
-    <a href="review.html">人手覆核</a>
-    <a href="reports.html">每日報告</a>
+    <a href="index.html">概覽</a>
+    <a href="review.html">覆核</a>
   </nav>
-  <span class="detector-badge" id="detector-badge">載入中…</span>
 </header>
 
 <main>
@@ -22,22 +20,18 @@
     <label class="field">地盤
       <select id="site-select"><option value="">全部</option></select>
     </label>
-    <label class="field">工作日期
+    <label class="field">日期
       <select id="date-select"><option value="">全部</option></select>
     </label>
     <label class="field">覆核人
-      <input type="text" id="reviewer" placeholder="輸入姓名" size="12">
+      <input type="text" id="reviewer" placeholder="姓名" size="10">
     </label>
     <label class="field">
-      <input type="checkbox" id="show-reviewed"> 顯示已覆核
+      <input type="checkbox" id="show-reviewed"> 已覆核
     </label>
     <div class="spacer"></div>
     <span id="queue-count" class="tag muted">—</span>
-    <button id="btn-refresh">重新整理</button>
   </div>
-  <p class="hint">
-    AI 只作初步篩查，每一項標示均須由管工或安全主任確認或推翻；日報只採用「確認違規」的項目。
-  </p>
 
   <div class="grid-review" id="queue"></div>
 </main>
@@ -56,12 +50,15 @@ async function loadFilters() {
   const [sites, { dates }] = await Promise.all([API.get("/api/sites"), API.get("/api/dates")]);
   document.getElementById("site-select").insertAdjacentHTML(
     "beforeend",
-    sites.map((s) => `<option value="${s.id}">${s.code} — ${s.name}</option>`).join("")
+    sites.map((s) => `<option value="${s.id}">${s.code} ${s.name}</option>`).join("")
   );
-  document.getElementById("date-select").insertAdjacentHTML(
+  const dateSelect = document.getElementById("date-select");
+  dateSelect.insertAdjacentHTML(
     "beforeend",
     dates.map((d) => `<option value="${d}">${d}</option>`).join("")
   );
+  // 預設最新一天，與概覽同一口徑；仍可切回「全部」一次覆核積壓項目。
+  if (dates.length) dateSelect.value = dates[0];
 }
 
 function queryString() {
@@ -78,7 +75,7 @@ function cardMarkup(item) {
   const decided = item.reviewed;
   const status = decided
     ? `<span class="tag ${item.decision === "confirmed" ? "danger" : "muted"}">
-         ${item.decision === "confirmed" ? "已確認違規" : "已判定誤報"} · ${item.reviewer}
+         ${item.decision === "confirmed" ? "已確認" : "誤報"} · ${item.reviewer}
        </span>`
     : `<span class="tag warn">待覆核</span>`;
 
@@ -87,13 +84,8 @@ function cardMarkup(item) {
          loading="lazy" onclick="openLightbox(this.src)">
     <div class="body">
       <div class="title">${item.label}</div>
-      <div class="meta">
-        ${item.site_code} ${item.site_name} · ${item.work_date}<br>
-        AI 信心值 ${item.confidence.toFixed(2)} · ${item.detector}<br>
-        ${item.original_name} · ${formatTime(item.captured_at || item.received_at)}
-      </div>
-      <div style="margin-top:8px">${status}</div>
-      <textarea placeholder="覆核備註（選填）">${item.note || ""}</textarea>
+      <div class="meta">${item.site_code} · ${item.work_date} · ${status}</div>
+      <textarea placeholder="備註">${item.note || ""}</textarea>
     </div>
     <div class="actions">
       <button class="danger" data-decision="confirmed">確認違規</button>
@@ -112,7 +104,7 @@ async function submit(card, decision) {
   const detectionId = Number(card.dataset.id);
   const note = card.querySelector("textarea").value;
   await API.post(`/api/review/${detectionId}`, { reviewer, decision, note });
-  toast(decision === "confirmed" ? "已記錄：確認違規" : "已記錄：誤報");
+  toast(decision === "confirmed" ? "已確認違規" : "已記為誤報");
   await load();
 }
 
@@ -137,9 +129,6 @@ async function load() {
 
 ["site-select", "date-select", "show-reviewed"].forEach((id) =>
   document.getElementById(id).addEventListener("change", load)
-);
-document.getElementById("btn-refresh").addEventListener("click", (event) =>
-  withBusy(event.target, load)
 );
 
 (async function init() {

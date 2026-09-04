@@ -5,7 +5,7 @@
 只需在流程與界面上具代表性。切換至真實模型時請改用實際地盤相片。
 
 用法：
-    python seed_demo.py                 # 3 個地盤 × 2 天 × 12 張，另加重覆相片
+    python seed_demo.py                 # 3 個地盤 × 2 天 × 12 張
     python seed_demo.py --days 3 --per-day 15
     python seed_demo.py --clean         # 先清空 data/ 再生成
 """
@@ -123,7 +123,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="生成示範相片")
     parser.add_argument("--days", type=int, default=2, help="生成最近多少天的資料")
     parser.add_argument("--per-day", type=int, default=12, help="每個地盤每天相片數")
-    parser.add_argument("--duplicates", type=int, default=3, help="每個地盤額外複製多少張重覆相片")
     parser.add_argument("--clean", action="store_true", help="先清空 data/ 目錄")
     parser.add_argument("--seed", type=int, default=20260903)
     args = parser.parse_args()
@@ -156,12 +155,7 @@ def main() -> None:
                 generated.append(path)
                 total += 1
 
-        # 模擬師傅重覆傳同一張相片：內容相同、檔名不同
-        for i, source in enumerate(rng.sample(generated, min(args.duplicates, len(generated)))):
-            duplicate = source.with_name(f"{source.stem}_FWD{i + 1}{source.suffix}")
-            shutil.copy2(source, duplicate)
-
-        print(f"  {site_code} {site_name}：{len(generated)} 張 + {args.duplicates} 張重覆")
+        print(f"  {site_code} {site_name}：{len(generated)} 張")
 
     print(f"\n共生成 {total} 張示範相片，位於 {config.INBOX_DIR}")
     print("下一步：python run.py 啟動服務後，於儀表板按「掃描收件匣」")
