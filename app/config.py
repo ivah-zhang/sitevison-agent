@@ -20,6 +20,9 @@ DETECTOR = os.getenv("CITF_DETECTOR", "mock")
 # 接入相片後是否立即執行偵測
 AUTO_DETECT = os.getenv("CITF_AUTO_DETECT", "1") == "1"
 
+# 線上演示環境：資料庫為空時自動生成並接入示範相片
+DEMO_SEED = os.getenv("CITF_DEMO_SEED", "0") == "1"
+
 # 低於此信心值的偵測結果不寫入資料庫
 CONFIDENCE_THRESHOLD = float(os.getenv("CITF_CONFIDENCE_THRESHOLD", "0.35"))
 

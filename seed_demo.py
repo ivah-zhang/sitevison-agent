@@ -32,8 +32,18 @@ HELMET_COLOURS = [(230, 170, 30), (215, 80, 55), (240, 240, 240)]
 SCENES = ["外牆棚架", "樓面澆注", "機電安裝", "地基工程", "室內裝修", "物料吊運"]
 
 
+FONT_CANDIDATES = (
+    "msyh.ttc",
+    "msjh.ttc",
+    # Linux 容器：內建點陣字型畫不出中文，需改用已安裝的 CJK 字型
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+    "arial.ttf",
+)
+
+
 def _font(size: int) -> ImageFont.FreeTypeFont:
-    for name in ("msyh.ttc", "msjh.ttc", "arial.ttf"):
+    for name in FONT_CANDIDATES:
         try:
             return ImageFont.truetype(name, size)
         except OSError:
@@ -119,6 +129,29 @@ def render_photo(path: Path, site_code: str, site_name: str, moment: datetime,
     os.utime(path, (stamp, stamp))
 
 
+def generate_demo_photos(days: int = 2, per_day: int = 12, seed: int = 20260903) -> int:
+    """在收件匣生成示範相片，回傳張數。"""
+    config.ensure_dirs()
+    init_db()
+    seed_sites()
+
+    rng = random.Random(seed)
+    total = 0
+    for site_code, site_name, _address in DEFAULT_SITES:
+        inbox = config.INBOX_DIR / site_code
+        inbox.mkdir(parents=True, exist_ok=True)
+        for day_offset in range(days):
+            work_day = date.today() - timedelta(days=day_offset)
+            for i in range(per_day):
+                moment = datetime.combine(
+                    work_day, time(8, 0)
+                ) + timedelta(minutes=rng.randint(0, 9 * 60))
+                path = inbox / f"IMG-{work_day:%Y%m%d}-{site_code}-{i:03d}.jpg"
+                render_photo(path, site_code, site_name, moment, i, rng)
+                total += 1
+    return total
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="生成示範相片")
     parser.add_argument("--days", type=int, default=2, help="生成最近多少天的資料")
@@ -131,32 +164,8 @@ def main() -> None:
         shutil.rmtree(config.DATA_DIR)
         print(f"已清空 {config.DATA_DIR}")
 
-    config.ensure_dirs()
-    init_db()
-    created = seed_sites()
-    print(f"地盤：新增 {created} 個，共 {len(DEFAULT_SITES)} 個")
-
-    rng = random.Random(args.seed)
-    total = 0
-    for site_code, site_name, _address in DEFAULT_SITES:
-        inbox = config.INBOX_DIR / site_code
-        inbox.mkdir(parents=True, exist_ok=True)
-        generated: list[Path] = []
-
-        for day_offset in range(args.days):
-            work_day = date.today() - timedelta(days=day_offset)
-            for i in range(args.per_day):
-                moment = datetime.combine(
-                    work_day, time(8, 0)
-                ) + timedelta(minutes=rng.randint(0, 9 * 60))
-                filename = f"IMG-{work_day:%Y%m%d}-{site_code}-{i:03d}.jpg"
-                path = inbox / filename
-                render_photo(path, site_code, site_name, moment, i, rng)
-                generated.append(path)
-                total += 1
-
-        print(f"  {site_code} {site_name}：{len(generated)} 張")
-
+    total = generate_demo_photos(args.days, args.per_day, args.seed)
+    print(f"地盤：共 {len(DEFAULT_SITES)} 個")
     print(f"\n共生成 {total} 張示範相片，位於 {config.INBOX_DIR}")
     print("下一步：python run.py 啟動服務後，於儀表板按「掃描收件匣」")
 

@@ -1,8 +1,18 @@
+---
+title: 地盤 AI 安全監測及自動記錄系統
+emoji: 🏗️
+colorFrom: blue
+colorTo: gray
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # 地盤 AI 安全監測及自動記錄系統
 
 AI Site Safety Monitoring and Automated Record System — CITF 申請所述方案的可運行原型。
 
-前線師傅照常以即時通訊群組傳送工地相片，系統自動接收、去重、歸檔，由 AI 初步篩查
+前線師傅照常以即時通訊群組傳送工地相片，系統自動接收及歸檔，由 AI 初步篩查
 安全帽（PPE）合規及吸煙違規，再交由管工或安全主任人手覆核，收工後自動生成每日
 Word 報告。系統只作輔助，不取代法定人手安全巡查。
 
@@ -14,16 +24,15 @@ python seed_demo.py        # 生成示範相片（可略過，改用自己的相
 python run.py              # 啟動後開啟 http://127.0.0.1:8000/
 ```
 
-在儀表板按「掃描收件匣」即完成接入與偵測，再到「人手覆核」確認結果，最後在
-「每日報告」生成 .docx。
+在概覽頁按「掃描收件匣」即完成接入與偵測，再到「覆核」確認結果，最後在概覽頁
+每個地盤一行生成 .docx。
 
-## 三個界面
+## 兩個界面
 
 | 頁面 | 用途 |
 |------|------|
-| 多地盤儀表板 | 各地盤當日相片數、去重攔截、AI 標示、覆核進度、日報預覽及下載 |
-| 人手覆核 | 逐項確認或推翻 AI 標示，可加備註 |
-| 每日報告 | 線上預覽、生成及下載每日 Word 報告 |
+| 概覽 | 各地盤當日相片數、AI 標示、覆核進度，以及日報預覽、生成及下載 |
+| 覆核 | 逐項確認或推翻 AI 標示，可加備註 |
 
 ## 日報：線上預覽與 Word 檔
 
@@ -33,21 +42,20 @@ python run.py              # 啟動後開啟 http://127.0.0.1:8000/
   毋須先生成檔案。頁內可直接列印或另存 PDF（已設 A4 列印樣式，會自動隱藏工具列）。
 - **Word 檔**：按「生成日報」後產生 `.docx`，存於 `data/reports/<地盤代號>/`。
 
-儀表板每個地盤一行都有「預覽」連結；報告列表每筆亦有「線上預覽」與「下載 .docx」。
+概覽頁每個地盤一行都有「預覽」連結，以及「生成」或「下載」。
 
 ## 相片接入
 
-兩個入口，共用同一條 SHA-256 去重與歸檔流程：
+兩個入口，共用同一條歸檔流程：
 
-- **網頁上載**（主要入口）：儀表板選定地盤後直接上載，可一次多張。
+- **網頁上載**（主要入口）：概覽頁選定地盤後直接上載，可一次多張。
 - **收件匣**（批次匯入）：把相片放入 `data/inbox/<地盤代號>/`，按「掃描收件匣」。
   處理後的原檔移入 `data/inbox/_processed/`，不會重覆掃描。
 
 即時通訊群組自動收相尚未實作，目前一律由上述兩個入口人手提交。
 
-內容相同的相片只儲存一次，重覆傳入只登記於 `duplicates` 表，儀表板的「去重攔截」
-即此數字。相片按 `data/photos/<地盤代號>/<日期>/` 歸檔，工作日期取自 EXIF 拍攝
-時間，缺少時退回檔案修改時間。
+相片按 `data/photos/<地盤代號>/<日期>/` 歸檔，工作日期取自 EXIF 拍攝時間，缺少時
+退回檔案修改時間。
 
 ## 偵測器：由 mock 換成真實模型
 
@@ -78,6 +86,8 @@ python run.py
 | `CITF_AUTO_DETECT` | `1` | 接入相片後是否立即偵測 |
 | `CITF_CONFIDENCE_THRESHOLD` | `0.35` | 低於此信心值不寫入資料庫 |
 | `CITF_DATA_DIR` | `./data` | 資料目錄 |
+| `CITF_DEMO_SEED` | `0` | 設為 `1` 時，資料庫為空會自動生成並接入示範相片 |
+| `PORT` | `8000` | 伺服器連接埠 |
 | `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `CITF_VLM_MODEL` | — | VLM 設定 |
 
 ## 目錄結構
@@ -88,19 +98,20 @@ app/
   db.py            SQLite 連線與初始化
   schema.sql       資料庫結構
   models.py        偵測類別與共用資料結構
-  ingest.py        接入、去重、歸檔、觸發偵測
+  ingest.py        接入、歸檔、觸發偵測
   detect/
     base.py        Detector 介面與工廠
     mock.py        模擬偵測器
     vlm.py         視覺語言模型偵測器
   review.py        覆核佇列與提交
-  stats.py         儀表板與報告共用統計
+  stats.py         概覽與報告共用統計
   report.py        每日 Word 報告生成
   main.py          FastAPI 路由
-web/               儀表板、覆核、報告三個頁面（原生 HTML/JS，無需建置）
+web/               概覽、覆核兩個頁面（原生 HTML/JS，無需建置）
 data/              相片、資料庫、報告（不納入版本控制）
 seed_demo.py       生成示範相片
 run.py             啟動伺服器
+Dockerfile         容器化部署（Hugging Face Spaces 等）
 ```
 
 ## 主要 API
@@ -108,7 +119,7 @@ run.py             啟動伺服器
 | 方法 | 路徑 | 用途 |
 |------|------|------|
 | GET | `/api/health` | 狀態與目前偵測器 |
-| GET | `/api/dashboard?date=` | 多地盤當日統計 |
+| GET | `/api/dashboard?date=` | 各地盤當日統計 |
 | POST | `/api/ingest/scan` | 掃描收件匣並偵測 |
 | POST | `/api/ingest/upload` | 上載相片（multipart） |
 | GET | `/api/review/queue` | 覆核佇列 |
@@ -120,6 +131,19 @@ run.py             啟動伺服器
 
 完整互動式文件：啟動後開啟 <http://127.0.0.1:8000/docs>。
 
+## 線上演示部署
+
+倉庫已附 `Dockerfile`，可直接部署至 Hugging Face Spaces（Docker SDK，連接埠 7860）：
+
+```bash
+git remote add space https://huggingface.co/spaces/<帳號>/<space-名稱>
+git push space main
+```
+
+容器已設 `CITF_DEMO_SEED=1`，每次啟動若資料庫為空會自動生成三個地盤、兩天的示範
+相片並跑完偵測，因此不需上傳任何資料即可演示。演示環境的儲存空間是暫存的，重啟
+後資料會重新生成。
+
 ## 與 CITF 申請文件的對應
 
 `CITF_申請填寫總表_定稿.md` 所列交付成果與本原型的對應關係：
@@ -128,7 +152,7 @@ run.py             啟動伺服器
 |----------------|--------|
 | 微調視覺語言偵測模型（VLM） | `app/detect/vlm.py`（介面已備妥，尚未微調） |
 | GPU 邊緣推論管線 | 目前為單機同步推論，未接 GPU 批次 |
-| 多地盤儀表板 | `web/index.html` |
+| 多地盤概覽 | `web/index.html` |
 | LLM 報告生成器 | `app/report.py`（線上預覽 + Word，目前為結構化模板，未接 LLM 潤飾） |
 | 手機預警 | 未實作 |
 | 即時通訊群組收相 | 未實作，改以網頁上載及收件匣資料夾提交 |

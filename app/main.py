@@ -24,12 +24,28 @@ async def lifespan(app: FastAPI):
     seed_sites()
     for site in _site_codes():
         (config.INBOX_DIR / site).mkdir(parents=True, exist_ok=True)
+    if config.DEMO_SEED:
+        _seed_demo_data()
     yield
 
 
 def _site_codes() -> list[str]:
     with get_conn() as conn:
         return [r["code"] for r in conn.execute("SELECT code FROM sites").fetchall()]
+
+
+def _seed_demo_data() -> None:
+    """演示環境每次重啟都是空資料庫，補一批示範相片並跑完偵測。"""
+    with get_conn() as conn:
+        if conn.execute("SELECT 1 FROM photos LIMIT 1").fetchone():
+            return
+
+    from seed_demo import generate_demo_photos
+
+    generate_demo_photos()
+    with get_conn() as conn:
+        ingest.scan_inbox(conn)
+        ingest.run_pending_detections(conn)
 
 
 app = FastAPI(title="地盤 AI 安全監測及自動記錄系統", version="0.1.0", lifespan=lifespan)
